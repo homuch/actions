@@ -1,0 +1,69 @@
+
+on:
+  workflow_call:
+    inputs:
+      struct-file:
+        description: 'The structure file define the mapping between the project files and the production folder.'
+        default: 'struct.yaml'
+        required: false
+        type: string
+
+name: Build & Publish Release Asset
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    name: Upload Release Asset
+    runs-on: ubuntu-latest
+    env: 
+      YAML_FILE: ${{ inputs.struct-file }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Parse project structure
+        run: |
+          if [ ! -f "$YAML_FILE" ]; then
+              echo "Error: The structure file does not exist."
+              exit 1
+          fi
+          FOLDER_NAME=$(yq e '.production.name' "$YAML_FILE")
+          mkdir -p "$FOLDER_NAME"
+          echo "FOLDER_NAME=$FOLDER_NAME" >> $GITHUB_ENV
+
+      - name: Check existence and copy to the folder
+        run: |
+          # Parse the JSON output into an array of file entries
+          mapfile -t FILE_ENTRIES< <(yq e '.production.files[]' "$YAML_FILE" -o=json | jq -c '.')
+          echo "Files to copy: ${FILE_ENTRIES[@]}"
+          # Iterate over the array and copy each file to the folder
+          for file_entry in "${FILE_ENTRIES[@]}"; do
+              CURRENT_PATH=$(echo $file_entry | jq -r '.current_path')
+              FOLDER_PATH=$(echo $file_entry | jq -r '.project_path')
+              # Create subdirectories if they don't exist
+              mkdir -p "$(dirname "$FOLDER_NAME/$FOLDER_PATH")"
+              # Copy the file
+              cp "$CURRENT_PATH" "$FOLDER_NAME/$FOLDER_PATH"
+          done
+
+      - name: Build project
+        run: |
+          # Define the zip file name
+          ZIP_FILE="${FOLDER_NAME}.zip"
+          echo "ZIP_FILE=$ZIP_FILE" >> $GITHUB_ENV
+          # Zip the folder
+          zip -r "$ZIP_FILE" "$FOLDER_NAME"
+      
+      - name: Check production existence
+        run: |
+          if [ ! -f "${ZIP_FILE}" ]; then
+              echo "Error: The production file does not exist."
+              exit 1
+          fi
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ${{ env.ZIP_FILE }}
