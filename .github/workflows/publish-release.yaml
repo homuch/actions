@@ -28,6 +28,7 @@ jobs:
     env: 
       YAML_FILE: ${{ inputs.struct-file }}
       ZIP_TOOL: ${{ inputs.zip-tool }}
+      ZIP_NAME: ${{ inputs.zip-name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
