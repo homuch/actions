@@ -65,7 +65,7 @@ jobs:
       - name: Build project
         run: |
           # Define the zip file name
-          if [ -z "$ZIP_NAME" ]; then
+          if [ ! -z "$ZIP_NAME" ]; then
               ZIP_FILE="$ZIP_NAME"
           else
               if [ "$ZIP_TOOL" == "zip" ]; then
