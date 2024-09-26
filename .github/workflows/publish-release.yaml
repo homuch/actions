@@ -7,6 +7,11 @@ on:
         default: 'struct.yaml'
         required: false
         type: string
+      zip-tool:
+        description: 'The zip tool to use.'
+        default: 'zip'
+        required: false
+        type: string
 
 name: Build & Publish Release Asset
 
@@ -18,6 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     env: 
       YAML_FILE: ${{ inputs.struct-file }}
+      ZIP_TOOL: ${{ inputs.zip-tool }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -50,10 +56,21 @@ jobs:
       - name: Build project
         run: |
           # Define the zip file name
-          ZIP_FILE="${FOLDER_NAME}.zip"
+          if [ "$ZIP_TOOL" == "zip" ]; then
+              ZIP_FILE="${FOLDER_NAME}.zip"
+          elif [ "$ZIP_TOOL" == "tar" ]; then
+              ZIP_FILE="${FOLDER_NAME}.tar"
+          else
+              echo "Error: The zip tool is not supported."
+              exit 1
+          fi
           echo "ZIP_FILE=$ZIP_FILE" >> $GITHUB_ENV
           # Zip the folder
-          zip -r "$ZIP_FILE" "$FOLDER_NAME"
+          if [ "$ZIP_TOOL" == "zip" ]; then
+              zip -r "$ZIP_FILE" "$FOLDER_NAME"
+          elif [ "$ZIP_TOOL" == "tar" ]; then
+              tar -cvf "$ZIP_FILE" "$FOLDER_NAME"
+          fi
       
       - name: Check production existence
         run: |
